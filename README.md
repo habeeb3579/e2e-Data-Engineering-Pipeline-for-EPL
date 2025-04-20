@@ -1,15 +1,16 @@
 # Football Data Engineering Pipeline Project
 I'll design a comprehensive end-to-end data engineering project for football data from understat.com that incorporates modern data engineering practices and tools. This pipeline will handle matches, clubs, players, leagues, and seasons with automatic updates for new data.
-Architecture Overview
+
+## Architecture Overview
 Let's structure this as a modular pipeline with the following components:
 
-Data Scraping Layer - Extract data from understat.com
-Data Streaming Layer - Real-time data handling
-Data Processing Layer - Transform and process the data
-Data Storage Layer - Store processed data (with Postgres or GCP options)
-Orchestration Layer - Manage workflow and pipeline
-Visualization Layer - Display insights
-Infrastructure Layer - Containerization and deployment
+- Data Scraping Layer - Extract data from understat.com
+- Data Streaming Layer - Real-time data handling
+- Data Processing Layer - Transform and process the data
+- Data Storage Layer - Store processed data (with Postgres or GCP options)
+- Orchestration Layer - Manage workflow and pipeline
+- Visualization Layer - Display insights
+- Infrastructure Layer - Containerization and deployment
 
 ### Detailed Component Breakdown
 1. Data Scraping Layer
