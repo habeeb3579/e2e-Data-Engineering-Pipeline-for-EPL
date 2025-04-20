@@ -1,0 +1,126 @@
+football-data-pipeline/
+├── Makefile                      # Build automation
+├── docker-compose.yml            # Container orchestration
+├── requirements.txt              # Python dependencies
+├── poetry.toml                   # Poetry configuration
+├── pyproject.toml                # Python project metadata
+├── README.md                     # Project documentation
+├── .github/                      # GitHub Actions workflows
+│   └── workflows/
+│       ├── ci.yml                # CI workflow
+│       └── cd.yml                # CD workflow
+├── config/                       # Configuration files
+│   ├── settings.py               # Global settings
+│   ├── postgres_config.yaml      # PostgreSQL configuration
+│   └── gcp_config.yaml           # GCP configuration
+├── src/                          # Source code
+│   ├── __init__.py
+│   ├── scraping/                 # Data extraction layer
+│   │   ├── __init__.py
+│   │   ├── scrapers/
+│   │   │   ├── __init__.py
+│   │   │   ├── base_scraper.py
+│   │   │   ├── match_scraper.py
+│   │   │   ├── player_scraper.py
+│   │   │   ├── team_scraper.py
+│   │   │   └── league_scraper.py
+│   │   └── utils/
+│   │       ├── __init__.py
+│   │       ├── proxies.py
+│   │       └── rate_limiter.py
+│   ├── streaming/                # Data streaming layer
+│   │   ├── __init__.py
+│   │   ├── producers/
+│   │   │   ├── __init__.py
+│   │   │   └── kafka_producer.py
+│   │   ├── consumers/
+│   │   │   ├── __init__.py
+│   │   │   └── kafka_consumer.py
+│   │   └── schemas/
+│   │       ├── __init__.py
+│   │       ├── match_schema.avsc
+│   │       ├── player_schema.avsc
+│   │       └── team_schema.avsc
+│   ├── processing/               # Data processing layer
+│   │   ├── __init__.py
+│   │   ├── batch/
+│   │   │   ├── __init__.py
+│   │   │   └── spark_processor.py
+│   │   ├── streaming/
+│   │   │   ├── __init__.py
+│   │   │   └── flink_processor.py
+│   │   └── transformations/
+│   │       ├── __init__.py
+│   │       ├── match_transformations.py
+│   │       ├── player_transformations.py
+│   │       └── team_transformations.py
+│   ├── storage/                  # Data storage layer
+│   │   ├── __init__.py
+│   │   ├── postgres/
+│   │   │   ├── __init__.py
+│   │   │   ├── models.py
+│   │   │   └── repository.py
+│   │   └── gcp/
+│   │       ├── __init__.py
+│   │       ├── bigquery.py
+│   │       └── cloud_storage.py
+│   ├── orchestration/            # Pipeline orchestration
+│   │   ├── __init__.py
+│   │   ├── airflow/
+│   │   │   ├── __init__.py
+│   │   │   └── dags/
+│   │   │       ├── __init__.py
+│   │   │       ├── data_extraction_dag.py
+│   │   │       └── data_processing_dag.py
+│   │   └── kestra/
+│   │       ├── __init__.py
+│   │       └── flows/
+│   │           ├── __init__.py
+│   │           └── real_time_flow.yaml
+│   ├── visualization/            # Data visualization
+│   │   ├── __init__.py
+│   │   ├── streamlit/
+│   │   │   ├── __init__.py
+│   │   │   └── app.py
+│   │   └── apis/
+│   │       ├── __init__.py
+│   │       └── data_api.py
+│   └── utils/                    # Utility functions
+│       ├── __init__.py
+│       ├── logging_utils.py
+│       └── validation_utils.py
+├── tests/                        # Unit tests
+│   ├── __init__.py
+│   ├── test_scraping.py
+│   ├── test_processing.py
+│   └── test_storage.py
+├── notebooks/                    # Jupyter notebooks for exploration
+│   └── data_exploration.ipynb
+├── dbt/                          # dbt for data transformation
+│   ├── dbt_project.yml
+│   ├── models/
+│   │   ├── staging/
+│   │   │   ├── schema.yml
+│   │   │   ├── stg_matches.sql
+│   │   │   ├── stg_players.sql
+│   │   │   └── stg_teams.sql
+│   │   └── marts/
+│   │       ├── schema.yml
+│   │       ├── player_performance.sql
+│   │       ├── team_standings.sql
+│   │       └── match_analytics.sql
+│   └── seeds/
+│       └── league_reference.csv
+└── deployment/                   # Deployment configurations
+    ├── docker/
+    │   ├── Dockerfile.scraper
+    │   ├── Dockerfile.processor
+    │   └── Dockerfile.api
+    ├── kubernetes/
+    │   ├── scraper-deployment.yaml
+    │   ├── processor-deployment.yaml
+    │   └── api-deployment.yaml
+    └── terraform/
+        ├── main.tf
+        ├── variables.tf
+        └── outputs.tf
