@@ -1,0 +1,264 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    container_name: football-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-football}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - football-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redpanda (Kafka-compatible streaming platform)
+  redpanda:
+    image: redpandadata/redpanda:latest
+    container_name: football-redpanda
+    command:
+      - redpanda
+      - start
+      - --smp=1
+      - --memory=1G
+      - --reserve-memory=0M
+      - --overprovisioned
+      - --node-id=0
+      - --check=false
+      - --pandaproxy-addr=0.0.0.0:8082
+      - --advertise-pandaproxy-addr=${DOCKER_HOST_IP:-127.0.0.1}:8082
+      - --kafka-addr=0.0.0.0:9092
+      - --advertise-kafka-addr=${DOCKER_HOST_IP:-127.0.0.1}:9092
+      - --rpc-addr=0.0.0.0:33145
+      - --advertise-rpc-addr=${DOCKER_HOST_IP:-127.0.0.1}:33145
+    ports:
+      - "9092:9092"   # Kafka API
+      - "8081:8081"   # Schema Registry
+      - "8082:8082"   # REST Proxy
+    networks:
+      - football-network
+
+  # Redpanda Console
+  redpanda-console:
+    image: redpandadata/console:latest
+    container_name: football-redpanda-console
+    environment:
+      - REDPANDA_BROKERS=redpanda:9092
+    ports:
+      - "8080:8080"
+    networks:
+      - football-network
+    depends_on:
+      - redpanda
+
+  # Spark Master
+  spark-master:
+    image: bitnami/spark:latest
+    container_name: football-spark-master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    ports:
+      - "8090:8080"
+      - "7077:7077"
+    networks:
+      - football-network
+
+  # Spark Worker
+  spark-worker:
+    image: bitnami/spark:latest
+    container_name: football-spark-worker
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=1G
+      - SPARK_WORKER_CORES=1
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    ports:
+      - "8091:8081"
+    networks:
+      - football-network
+    depends_on:
+      - spark-master
+
+  # Airflow
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: ./deployment/docker/airflow/Dockerfile
+    container_name: football-airflow-webserver
+    restart: always
+    depends_on:
+      - postgres
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./airflow/config:/opt/airflow/config
+      - ./src:/opt/airflow/src
+      - ./config:/opt/airflow/project_config
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-football}
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY:-}
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=True
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
+      - _AIRFLOW_DB_UPGRADE=True
+      - _AIRFLOW_WWW_USER_CREATE=True
+      - _AIRFLOW_WWW_USER_USERNAME=${AIRFLOW_USERNAME:-admin}
+      - _AIRFLOW_WWW_USER_PASSWORD=${AIRFLOW_PASSWORD:-admin}
+    ports:
+      - "8085:8080"
+    networks:
+      - football-network
+    command: webserver
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Airflow Scheduler
+  airflow-scheduler:
+    build:
+      context: .
+      dockerfile: ./deployment/docker/airflow/Dockerfile
+    container_name: football-airflow-scheduler
+    restart: always
+    depends_on:
+      - airflow-webserver
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./airflow/config:/opt/airflow/config
+      - ./src:/opt/airflow/src
+      - ./config:/opt/airflow/project_config
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-football}
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY:-}
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=True
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    networks:
+      - football-network
+    command: scheduler
+
+  # Streamlit Dashboard
+  streamlit:
+    build:
+      context: .
+      dockerfile: ./deployment/docker/streamlit/Dockerfile
+    container_name: football-streamlit
+    restart: always
+    volumes:
+      - ./streamlit:/app
+      - ./src:/app/src
+      - ./config:/app/config
+    environment:
+      - CONFIG_PATH=/app/config/config.yaml
+    ports:
+      - "8501:8501"
+    networks:
+      - football-network
+    depends_on:
+      - postgres
+
+  # dbt service for data transformation
+  dbt:
+    build:
+      context: .
+      dockerfile: ./deployment/docker/dbt/Dockerfile
+    container_name: football-dbt
+    volumes:
+      - ./dbt:/dbt
+      - ./config:/config
+    environment:
+      - DBT_PROFILES_DIR=/dbt/profiles
+    networks:
+      - football-network
+    depends_on:
+      - postgres
+
+  # Kestra workflow engine
+  kestra:
+    image: kestra/kestra:latest
+    container_name: football-kestra
+    ports:
+      - "8095:8080"
+    environment:
+      - KESTRA_CONFIGURATION=prod
+      - KESTRA_REPOSITORY=postgres
+      - KESTRA_URL=http://localhost:8095
+      - KESTRA_JDBC_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-football}
+      - KESTRA_JDBC_USERNAME=${POSTGRES_USER:-postgres}
+      - KESTRA_JDBC_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+    networks:
+      - football-network
+    depends_on:
+      - postgres
+
+  # Web scraper service
+  scraper:
+    build:
+      context: .
+      dockerfile: ./deployment/docker/scraper/Dockerfile
+    container_name: football-scraper
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./data:/app/data
+    environment:
+      - CONFIG_PATH=/app/config/config.yaml
+    networks:
+      - football-network
+    depends_on:
+      - postgres
+      - redpanda
+
+  # MinIO (S3-compatible object storage)
+  minio:
+    image: minio/minio:latest
+    container_name: football-minio
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - football-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+volumes:
+  postgres-data:
+  minio-data:
+
+networks:
+  football-network:
+    driver: bridge

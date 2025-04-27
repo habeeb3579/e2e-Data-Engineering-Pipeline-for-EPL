@@ -1,0 +1,13 @@
+streamlit==1.26.0
+pandas==2.0.3
+numpy==1.24.4
+plotly==5.16.1
+matplotlib==3.7.2
+seaborn==0.12.2
+psycopg2-binary==2.9.7
+pillow==10.0.0
+pyyaml==6.0.1
+python-dotenv==1.0.0
+google-cloud-bigquery==3.11.4
+pyarrow==13.0.0
+requests==2.31.0

@@ -1,0 +1,150 @@
+# dbt/models/schema.yml
+version: 2
+
+sources:
+  - name: raw
+    description: "Raw football data from understat.com"
+    tables:
+      - name: matches
+        description: "Raw match data"
+      - name: teams
+        description: "Raw team data"
+      - name: players
+        description: "Raw player data"
+      - name: shots
+        description: "Raw shot data"
+
+models:
+  - name: stg_matches
+    description: "Staged match data"
+    columns:
+      - name: match_id
+        description: "Primary key for matches"
+        tests:
+          - unique
+          - not_null
+      - name: home_team
+        description: "Home team name"
+      - name: away_team
+        description: "Away team name"
+      - name: league
+        description: "League name"
+      - name: season
+        description: "Season year"
+      - name: match_date
+        description: "Date of the match"
+      - name: home_goals
+        description: "Goals scored by home team"
+      - name: away_goals
+        description: "Goals scored by away team"
+      - name: home_xg
+        description: "Expected goals for home team"
+      - name: away_xg
+        description: "Expected goals for away team"
+
+  - name: stg_teams
+    description: "Staged team data"
+    columns:
+      - name: team_id
+        description: "Primary key for teams"
+        tests:
+          - unique
+          - not_null
+      - name: team_name
+        description: "Team name"
+      - name: league
+        description: "League name"
+
+  - name: stg_players
+    description: "Staged player data"
+    columns:
+      - name: player_id
+        description: "Primary key for players"
+        tests:
+          - unique
+          - not_null
+      - name: player_name
+        description: "Player name"
+      - name: team_id
+        description: "Foreign key to team"
+        tests:
+          - relationships:
+              to: ref('stg_teams')
+              field: team_id
+
+  - name: fact_matches
+    description: "Fact table for matches"
+    columns:
+      - name: match_id
+        description: "Primary key for matches"
+        tests:
+          - unique
+          - not_null
+      - name: home_team_id
+        description: "Foreign key to home team"
+      - name: away_team_id
+        description: "Foreign key to away team"
+      - name: league
+        description: "League name"
+      - name: season
+        description: "Season year"
+      - name: match_date
+        description: "Match date"
+      - name: result
+        description: "Match result (home win, away win, draw)"
+
+  - name: fact_player_performance
+    description: "Fact table for player performance in matches"
+    columns:
+      - name: performance_id
+        description: "Surrogate key"
+        tests:
+          - unique
+          - not_null
+      - name: match_id
+        description: "Foreign key to match"
+      - name: player_id
+        description: "Foreign key to player"
+      - name: goals
+        description: "Goals scored"
+      - name: assists
+        description: "Assists made"
+      - name: shots
+        description: "Shots taken"
+      - name: xg
+        description: "Expected goals"
+      - name: xa
+        description: "Expected assists"
+
+  - name: dim_team_season_stats
+    description: "Dimensional table for team stats by season"
+    columns:
+      - name: team_season_id
+        description: "Surrogate key"
+        tests:
+          - unique
+          - not_null
+      - name: team_id
+        description: "Foreign key to team"
+      - name: season
+        description: "Season year"
+      - name: league
+        description: "League name"
+      - name: matches_played
+        description: "Number of matches played"
+      - name: wins
+        description: "Number of wins"
+      - name: draws
+        description: "Number of draws"
+      - name: losses
+        description: "Number of losses"
+      - name: goals_for
+        description: "Goals scored"
+      - name: goals_against
+        description: "Goals conceded"
+      - name: points
+        description: "Points earned"
+      - name: xg_for
+        description: "Expected goals for"
+      - name: xg_against
+        description: "Expected goals against"

@@ -1,0 +1,61 @@
+# Football Data Pipeline Configuration
+
+# Storage configuration
+storage_type: "postgres"  # "postgres" or "gcp"
+output_dir: "./data"
+update_frequency: "daily"  # daily, hourly, weekly
+
+# Scraper configuration
+scraper:
+  leagues:
+    - "epl"       # English Premier League
+  #  - "la_liga"   # Spanish La Liga
+  #  - "bundesliga"  # German Bundesliga
+  #  - "serie_a"   # Italian Serie A
+  #  - "ligue_1"   # French Ligue 1
+  seasons:
+    - "2023"      # 2023/2024 season
+  #  - "2022"      # 2022/2023 season
+  #  - "2021"      # 2021/2022 season
+  current_season: "2024"
+  request_delay: 2.0  # Delay between requests in seconds to avoid rate limiting
+  use_proxy: false
+  proxy_url: ""  # Optional proxy URL
+  method: "beautifulsoup"  # "beautifulsoup" or "selenium"
+  headless: true  # Run Selenium in headless mode (applicable only when method is "selenium")
+
+# PostgreSQL configuration
+postgres:
+  host: "localhost"
+  port: 5432
+  database: "football"
+  username: "postgres"
+  password: "password"
+  schema: "football"
+
+# Google Cloud Platform configuration
+gcp:
+  project_id: "dezoomfinal"
+  location: "US"
+  bucket_name: "football-data-bucket"
+  dataset_id: "football_data"
+  service_account_key_path: "football-data-pipeline/dprof-dezoomfinal-b4d188529d18.json"
+
+# Apache Spark configuration
+spark:
+  master_url: "local[*]"  # Use "yarn" for production
+  app_name: "FootballDataPipeline"
+  driver_memory: "2g"
+  executor_memory: "4g"
+  executor_cores: 2
+  num_executors: 2
+
+# Streaming configuration
+streaming:
+  kafka_bootstrap_servers: "localhost:9092"
+  kafka_topic: "football-data"  # Base topic name
+  schema_registry_url: "http://localhost:8081"  # Optional schema registry URL
+  consumer_group_id: "football-consumer"
+
+# dbt configuration
+dbt_profiles_dir: "./dbt/profiles"

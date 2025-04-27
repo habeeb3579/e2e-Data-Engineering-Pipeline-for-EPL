@@ -1,0 +1,20 @@
+# dbt/profiles/profiles.yml
+football_data:
+  target: dev
+  outputs:
+    dev:
+      type: "{{ env_var('DBT_TYPE', 'postgres') }}"
+      # PostgreSQL configuration
+      host: "{{ env_var('POSTGRES_HOST', 'localhost') }}"
+      user: "{{ env_var('POSTGRES_USER', 'postgres') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD', 'postgres') }}"
+      port: "{{ env_var('POSTGRES_PORT', 5432) }}"
+      dbname: "{{ env_var('POSTGRES_DB', 'football_data') }}"
+      schema: "{{ env_var('POSTGRES_SCHEMA', 'public') }}"
+      threads: "{{ env_var('DBT_THREADS', 4) }}"
+      # BigQuery configuration
+      project: "{{ env_var('GCP_PROJECT', '') }}"
+      dataset: "{{ env_var('BQ_DATASET', 'football_data') }}"
+      location: "{{ env_var('BQ_LOCATION', 'US') }}"
+      method: "{{ env_var('BQ_METHOD', 'service-account') }}"
+      keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS', '') }}"

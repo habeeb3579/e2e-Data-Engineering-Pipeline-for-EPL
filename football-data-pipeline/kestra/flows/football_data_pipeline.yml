@@ -1,0 +1,88 @@
+id: football_data_pipeline
+namespace: football
+
+tasks:
+  - id: check_for_new_matches
+    type: io.kestra.plugin.scripts.python.Script
+    inputFiles:
+      main.py: |
+        import sys
+        import json
+        from datetime import datetime, timedelta
+        import requests
+        import os
+        import yaml
+        
+        # Load config
+        with open("/config/config.yaml", "r") as f:
+            config = yaml.safe_load(f)
+        
+        # Get current date
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        
+        # Check leagues with matches today
+        leagues = config["leagues"]
+        leagues_with_matches = []
+        
+        for league in leagues:
+            url = f"https://understat.com/league/{league['code']}"
+            try:
+                response = requests.get(url)
+                if "Matches" in response.text:
+                    leagues_with_matches.append(league["code"])
+            except Exception as e:
+                pass
+        
+        # Return leagues with matches
+        result = {
+            "has_new_matches": len(leagues_with_matches) > 0,
+            "leagues": leagues_with_matches
+        }
+        
+        # Write output for Kestra
+        with open("output.json", "w") as f:
+            json.dump(result, f)
+    outputFiles:
+      - output.json
+
+  - id: conditional_scrape
+    type: io.kestra.core.tasks.flows.Condition
+    when: "{{ outputs.check_for_new_matches.outputFiles['output.json'].has_new_matches }}"
+    then:
+      - id: scrape_new_matches
+        type: io.kestra.plugin.scripts.shell.Commands
+        commands:
+          - docker exec football-scraper python -m src.extraction.understat.scraper --leagues '{{ outputs.check_for_new_matches.outputFiles["output.json"].leagues | join(",") }}'
+    else:
+      - id: log_no_matches
+        type: io.kestra.plugin.scripts.shell.Commands
+        commands:
+          - echo "No new matches found for today"
+
+  - id: process_data
+    type: io.kestra.plugin.scripts.shell.Commands
+    commands:
+      - docker exec football-spark-worker spark-submit --master spark://spark-master:7077 /app/src/processing/spark_processor.py
+    dependsOn:
+      - conditional_scrape
+
+  - id: run_dbt_transformations
+    type: io.kestra.plugin.scripts.shell.Commands
+    commands:
+      - docker exec football-dbt dbt run
+    dependsOn:
+      - process_data
+
+  - id: update_dashboard_data
+    type: io.kestra.plugin.scripts.shell.Commands
+    commands:
+      - docker exec football-streamlit python -m src.utils.refresh_dashboard_data
+    dependsOn:
+      - run_dbt_transformations
+
+triggers:
+  - id: daily_trigger
+    type: io.kestra.core.models.triggers.Schedule
+    cron: "0 0 * * *"  # Run daily at midnight
+    backfill:
+      start: "2025-01-01T00:00:00Z"
